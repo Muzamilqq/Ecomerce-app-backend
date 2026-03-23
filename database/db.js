@@ -2,8 +2,6 @@ import dotenv from "dotenv";
 dotenv.config({ path: "./config/config.env" });
 import { Client } from "pg"; // PostgreSQL client
 
-// Debug to make sure env is loading
-console.log("DB_PASSWORD =", process.env.DB_PASSWORD);
 const database = new Client({
   user: process.env.USER,
   host: process.env.HOST,
