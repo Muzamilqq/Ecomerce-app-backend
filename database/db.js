@@ -9,7 +9,7 @@ const database = new Client({
   host: process.env.HOST,
   database: process.env.DB_NAME,
   password: process.env.DB_PASSWORD,
-  port: 5433,
+  port: 5432,
 });
 
 try {
