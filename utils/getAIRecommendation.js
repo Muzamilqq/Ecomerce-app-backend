@@ -7,7 +7,7 @@
 
 export async function getAIRecommendation(userPrompt, products) {
   const API_KEY = process.env.GEMINI_API_KEY;
-  const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
+  const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${API_KEY}`;
 
   const geminiPrompt = `
       Here is a list of available products:
