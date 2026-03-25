@@ -1,47 +1,47 @@
-export async function getAIRecommendation(req, res, userPrompt, products) {
+// FIX: removed res.status(500).json() calls from this utility function.
+// A utility should NEVER call res directly — it's not an Express route handler.
+// Calling res.json() here after the controller has already started responding
+// causes "Cannot set headers after they are sent" crashes.
+// Instead, this function now throws errors and returns a result object,
+// letting the controller (in productController.js) handle the response.
+
+export async function getAIRecommendation(userPrompt, products) {
   const API_KEY = process.env.GEMINI_API_KEY;
   const URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${API_KEY}`;
 
-  try {
-    const geminiPrompt = `
-        Here is a list of avaiable products:
-        ${JSON.stringify(products, null, 2)}
+  const geminiPrompt = `
+      Here is a list of available products:
+      ${JSON.stringify(products, null, 2)}
 
-        Based on the following user request, filter and suggest the best matching products:
-        "${userPrompt}"
+      Based on the following user request, filter and suggest the best matching products:
+      "${userPrompt}"
 
-        Only return the matching products in JSON format.
-    `;
+      Only return the matching products in JSON format. Return ONLY valid JSON, no markdown, no explanation.
+  `;
 
-    const response = await fetch(URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: geminiPrompt }] }],
-      }),
-    });
+  const response = await fetch(URL, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: geminiPrompt }] }],
+    }),
+  });
 
-    const data = await response.json();
-    const aiResponseText =
-      data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
-    const cleanedText = aiResponseText.replace(/```json|```/g, ``).trim();
+  const data = await response.json();
+  const aiResponseText =
+    data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
+  const cleanedText = aiResponseText.replace(/```json|```/g, "").trim();
 
-    if (!cleanedText) {
-      return res
-        .status(500)
-        .json({ success: false, message: "AI response is empty or invalid." });
-    }
-
-    let parsedProducts;
-    try {
-      parsedProducts = JSON.parse(cleanedText);
-    } catch (error) {
-      return res
-        .status(500)
-        .json({ success: false, message: "Failed to parse AI response" });
-    }
-    return { success: true, products: parsedProducts };
-  } catch (error) {
-    res.status(500).json({ success: false, message: "Internal server error." });
+  if (!cleanedText) {
+    throw new Error("AI response is empty or invalid.");
   }
+
+  let parsedProducts;
+  try {
+    parsedProducts = JSON.parse(cleanedText);
+  } catch (error) {
+    throw new Error("Failed to parse AI response as JSON.");
+  }
+
+  return { success: true, products: parsedProducts };
 }

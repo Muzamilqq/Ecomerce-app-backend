@@ -12,16 +12,30 @@ import orderRouter from "./router/orderRoutes.js";
 import Stripe from "stripe";
 import database from "./database/db.js";
 
+config({ path: "./config/config.env" });
+
 const app = express();
 
-config({ path: "./config/config.env" });
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.DASHBOARD_URL,
+  "http://localhost:5173", // vite default for frontend
+  "http://localhost:5174", // vite default for dashboard (second instance)
+].filter(Boolean); // removes undefined/null values
 
 app.use(
   cors({
-    origin: [process.env.FRONTEND_URL, process.env.DASHBOARD_URL],
+    origin: function (origin, callback) {
+      // Allow requests with no origin (mobile apps, Postman, curl)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error(`CORS blocked: origin ${origin} not allowed`));
+    },
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
-  })
+  }),
 );
 
 app.post(
@@ -34,43 +48,36 @@ app.post(
       event = Stripe.webhooks.constructEvent(
         req.body,
         sig,
-        process.env.STRIPE_WEBHOOK_SECRET
+        process.env.STRIPE_WEBHOOK_SECRET,
       );
     } catch (error) {
       return res.status(400).send(`Webhook Error: ${error.message || error}`);
     }
 
-    // Handling the Event
-
     if (event.type === "payment_intent.succeeded") {
       const paymentIntent_client_secret = event.data.object.client_secret;
       try {
-        // FINDING AND UPDATED PAYMENT
         const updatedPaymentStatus = "Paid";
         const paymentTableUpdateResult = await database.query(
           `UPDATE payments SET payment_status = $1 WHERE payment_intent_id = $2 RETURNING *`,
-          [updatedPaymentStatus, paymentIntent_client_secret]
+          [updatedPaymentStatus, paymentIntent_client_secret],
         );
         await database.query(
           `UPDATE orders SET paid_at = NOW() WHERE id = $1 RETURNING *`,
-          [paymentTableUpdateResult.rows[0].order_id]
+          [paymentTableUpdateResult.rows[0].order_id],
         );
 
-        // Reduce Stock For Each Product
         const orderId = paymentTableUpdateResult.rows[0].order_id;
 
         const { rows: orderedItems } = await database.query(
-          `
-            SELECT product_id, quantity FROM order_items WHERE order_id = $1
-          `,
-          [orderId]
+          `SELECT product_id, quantity FROM order_items WHERE order_id = $1`,
+          [orderId],
         );
 
-        // For each ordered item, reduce the product stock
         for (const item of orderedItems) {
           await database.query(
             `UPDATE products SET stock = stock - $1 WHERE id = $2`,
-            [item.quantity, item.product_id]
+            [item.quantity, item.product_id],
           );
         }
       } catch (error) {
@@ -80,7 +87,7 @@ app.post(
       }
     }
     res.status(200).send({ received: true });
-  }
+  },
 );
 
 app.use(cookieParser());
@@ -91,7 +98,7 @@ app.use(
   fileUpload({
     tempFileDir: "./uploads",
     useTempFiles: true,
-  })
+  }),
 );
 
 app.use("/api/v1/auth", authRouter);
