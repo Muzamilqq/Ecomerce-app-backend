@@ -9,8 +9,10 @@ export const sendToken = (user, statusCode, message, res) => {
     .status(statusCode)
     .cookie("token", token, {
       expires: new Date(
-        Date.now() + process.env.COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+        Date.now() + process.env.COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000,
       ),
+      sameSite: "none",
+      secure: true,
       httpOnly: true,
     })
     .json({
