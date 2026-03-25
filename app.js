@@ -19,9 +19,9 @@ const app = express();
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   process.env.DASHBOARD_URL,
-  "http://localhost:5173", // vite default for frontend
-  "http://localhost:5174", // vite default for dashboard (second instance)
-].filter(Boolean); // removes undefined/null values
+  "https://ecomerce-app-tau.vercel.app",
+  "https://ecomerce-app-dashboard.vercel.app",
+].filter(Boolean);
 
 app.use(
   cors({
